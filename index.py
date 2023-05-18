@@ -1,4 +1,5 @@
 
+from datetime import datetime, timedelta
 import requests
 import json
 from datetime import timedelta
@@ -34,7 +35,7 @@ def create_snapshot(vm_id):
     if response.status_code == 200:
         print(f'Создание снепшота для {vm_info["name"]} запущено')
     else:
-        print("Ошибка при создании снепшота:", response.json())
+        raise ValueError(f"Ошибка: {response.json()['message']}")
 
 
 def get_snapshot_list():
@@ -70,13 +71,16 @@ def delete_snapshot(snapshot_id):
 
 
 def delete_old_snapshots(time_delta):
+    """
+    Deletes snapshots that are older than the specified time delta.
+    """
     snapshots = get_snapshot_list()
     if snapshots:
         for snapshot in snapshots:
             creation_time = datetime.strptime(
-                snapshot["created_at"], "%Y-%m-%d %H:%M:%S")
+                snapshot['created_at'], '%Y-%m-%d %H:%M:%S')
             print(
-                f'[ {snapshot["id"]} ] [ {snapshot["created_at"]} ] {snapshot["name"]}')
+                f"[{snapshot['id']}] [{snapshot['created_at']}] {snapshot['name']}")
             if creation_time < (datetime.now() - timedelta(days=time_delta)):
                 delete_snapshot(snapshot['id'])
             else:
@@ -95,12 +99,27 @@ def get_vm_info(vm_id):
     if response.status_code == 200:
         return response.json()['reglet']
     else:
-        return None
+        raise ValueError(f"Ошибка: {response.json()['message']}")
+
+
+def check_today_snapshot(vm_id):
+    vm_info = get_vm_info(vm_id)
+    t_delta = 1
+    snapshots = get_snapshot_list()
+    if snapshots:
+        for snapshot in snapshots:
+            creation_time = datetime.strptime(snapshot["created_at"], "%Y-%m-%d %H:%M:%S")
+            if snapshot['name'] == vm_info['name']:
+                if creation_time >= (datetime.now() - timedelta(days=t_delta)):
+                    print(f'Снепшот для {vm_info["name"]} уже создан сегодня')
+                    return True
+    return False
 
 
 vm_ids = load_vm_list()
 
 for vm_id in vm_ids:
-    create_snapshot(vm_id)
+    if not check_today_snapshot(vm_id):
+        create_snapshot(vm_id)
 
 delete_old_snapshots(time_delta)
