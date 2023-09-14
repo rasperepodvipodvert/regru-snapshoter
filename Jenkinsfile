@@ -40,10 +40,6 @@ pipeline {
     }
 
     post {
-        always {
-            deleteDir()
-            notifyMM("good" , "$LOG")
-        }
         failure {
             notifyMM("danger" , "$LOG")
         }
